@@ -1,10 +1,7 @@
-using Newtonsoft.Json;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -26,7 +23,7 @@ public class GameManager : MonoBehaviour
     [Space(20)]
     [Header("Card Faces Pool")]
     [SerializeField] private Sprite[] allCardFaces; // Array of sprites for the card faces, assign these in the Inspector.
-    [SerializeField] private int maxPairs = 16; // The max number of pairs for a game.
+    [SerializeField] private int maxPairs = 10; // The max number of pairs for a game.
 
     [Space(20)]
     [Header("UI and Sound")]
@@ -57,27 +54,15 @@ public class GameManager : MonoBehaviour
         else
         {
             StartNewGame();
-            // Normal new game start.
-            //LoadGame(); // Load high score.
-            //CalculateLayout();
-            //GenerateCards();
-            //StartCoroutine(ShowAndHideCards());
         }
     }
 
     // Dynamically calculates the number of pairs and grid layout.
-    private void CalculateLayout()
+    private void CalculateLayout(int totalCards)
     {
         // Choose a random number of pairs between 2 and the maxPairs.
         // Make sure it's an even number of cards.
-        int totalCards;
-        do
-        {
-            pairsCount = Random.Range(2, maxPairs + 1);
-            totalCards = pairsCount * 2;
-        } while (totalCards % 2 != 0 || totalCards > allCardFaces.Length * 2);
-
-        // Find a balanced grid layout (rows x columns) for the total number of cards.
+        pairsCount = totalCards / 2;
         columns = 1;
         rows = 1;
 
@@ -211,7 +196,6 @@ public class GameManager : MonoBehaviour
     private IEnumerator CheckForMatch()
     {
         // Wait for a short time to allow the user to see the cards.
-        canFlip = false;
         yield return new WaitForSeconds(1.0f);
 
         Card card1 = flippedCards[0];
@@ -268,8 +252,6 @@ public class GameManager : MonoBehaviour
         yield return new WaitForSeconds(audioManager.gameOverSound.length);
 
         Debug.Log("Game Over!");
-        SaveGame();
-        ClearSavedGame();
         uiManager.ShowGameOverUI(score);
     }
 
@@ -289,11 +271,6 @@ public class GameManager : MonoBehaviour
             }
             highScoreText.text = "High Score: " + highScore.ToString();
         }
-    }
-
-    private void OnApplicationQuit()
-    {
-        SaveGame();
     }
 
     private void SaveGame()
@@ -329,9 +306,9 @@ public class GameManager : MonoBehaviour
         if (PlayerPrefs.HasKey("HighScore"))
         {
             highScore = PlayerPrefs.GetInt("HighScore");
-            UpdateScoreDisplay();
             Debug.Log("Game Loaded!");
         }
+        UpdateScoreDisplay();
     }
 
     private void LoadGameState()
@@ -359,25 +336,7 @@ public class GameManager : MonoBehaviour
             matchedPairs = gameState.matchedPairs;
             UpdateScoreDisplay();
 
-            // Re-calculate columns and rows from the loaded card count.
-            int totalCards = gameState.cards.Count;
-            columns = 1;
-            rows = 1;
-
-            for (int i = 1; i <= Mathf.Sqrt(totalCards); i++)
-            {
-                if (totalCards % i == 0)
-                {
-                    rows = i;
-                    columns = totalCards / i;
-                }
-            }
-            if (columns < rows)
-            {
-                int temp = columns;
-                columns = rows;
-                rows = temp;
-            }
+            CalculateLayout(gameState.cards.Count);
 
             float gridWidth = columns * cardSize.x + (columns - 1) * cardSpacing;
             float gridHeight = rows * cardSize.y + (rows - 1) * cardSpacing;
@@ -422,9 +381,15 @@ public class GameManager : MonoBehaviour
 
     private void StartNewGame()
     {
-        // The Start() method will now just call this.
+        ClearSavedGame(); // Clear any previous saved game state.
         LoadGame(); // Load high score.
-        CalculateLayout();
+        int totalCards;
+        do
+        {
+            pairsCount = Random.Range(2, maxPairs + 1);
+            totalCards = pairsCount * 2;
+        } while (totalCards % 2 != 0 || totalCards > allCardFaces.Length * 2);
+        CalculateLayout(totalCards);
         GenerateCards();
         StartCoroutine(ShowAndHideCards());
     }
@@ -448,9 +413,7 @@ public class GameManager : MonoBehaviour
     public void SaveAndQuitToMenu()
     {
         // This method saves the full game state and returns to the menu.
-        SaveGame(); // This will save the full game state now.
-        PlayerPrefs.SetInt("HasSavedGame", 1); // Ensure the flag is set.
-        PlayerPrefs.Save();
+        SaveGame();
         Application.Quit();
     }
 
@@ -468,7 +431,13 @@ public class GameManager : MonoBehaviour
         canFlip = false;
 
         // Start a new game with carry-forward score.
-        CalculateLayout();
+        int totalCards;
+        do
+        {
+            pairsCount = Random.Range(2, maxPairs + 1);
+            totalCards = pairsCount * 2;
+        } while (totalCards % 2 != 0 || totalCards > allCardFaces.Length * 2);
+        CalculateLayout(totalCards);
         GenerateCards();
         StartCoroutine(ShowAndHideCards());
         audioManager.Restart();
