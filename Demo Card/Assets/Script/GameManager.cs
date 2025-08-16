@@ -1,7 +1,10 @@
-using UnityEngine;
+using Newtonsoft.Json;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using TMPro;
+using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -44,10 +47,22 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        LoadGame();
-        CalculateLayout();
-        GenerateCards();
-        StartCoroutine(ShowAndHideCards());
+        bool loadGame = PlayerPrefs.GetInt("LoadSavedGame", 0) == 1;
+
+        if (loadGame)
+        {
+            PlayerPrefs.SetInt("LoadSavedGame", 0); // Reset the flag.
+            LoadGameState();
+        }
+        else
+        {
+            StartNewGame();
+            // Normal new game start.
+            //LoadGame(); // Load high score.
+            //CalculateLayout();
+            //GenerateCards();
+            //StartCoroutine(ShowAndHideCards());
+        }
     }
 
     // Dynamically calculates the number of pairs and grid layout.
@@ -239,6 +254,9 @@ public class GameManager : MonoBehaviour
 
     private void GameOver()
     {
+        // When the game ends, we save the score and also clear the game state.
+        SaveGame(); // Save score and high score.
+        ClearSavedGame(); // Immediately clear the game state save file.
         StartCoroutine(ShowGameOverScreenWithDelay());
     }
 
@@ -251,6 +269,7 @@ public class GameManager : MonoBehaviour
 
         Debug.Log("Game Over!");
         SaveGame();
+        ClearSavedGame();
         uiManager.ShowGameOverUI(score);
     }
 
@@ -279,9 +298,30 @@ public class GameManager : MonoBehaviour
 
     private void SaveGame()
     {
-        PlayerPrefs.SetInt("HighScore", highScore);
-        PlayerPrefs.Save(); // Save the data to disk.
-        Debug.Log("Game Saved!");
+        GameState gameState = new GameState();
+        gameState.score = score;
+        gameState.highScore = highScore;
+        gameState.matchedPairs = matchedPairs;
+        gameState.cards = new List<CardData>();
+
+        for (int i = 0; i < allCards.Count; i++)
+        {
+            Card card = allCards[i];
+            CardData cardData = new CardData
+            {
+                cardID = card.cardID,
+                positionIndex = i,
+                isFaceUp = card.isFaceUp,
+                isMatched = !card.gameObject.activeSelf
+            };
+            gameState.cards.Add(cardData);
+        }
+
+        string json = JsonUtility.ToJson(gameState);
+        PlayerPrefs.SetString("SavedGameData", json);
+        PlayerPrefs.SetInt("HasSavedGame", 1); // Set a flag indicating a save exists.
+        PlayerPrefs.Save();
+        Debug.Log("Full game state saved!");
     }
 
     private void LoadGame()
@@ -294,10 +334,123 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void LoadGameState()
+    {
+        if (PlayerPrefs.HasKey("SavedGameData"))
+        {
+            string json = PlayerPrefs.GetString("SavedGameData");
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogError("Saved game data is empty. Starting a new game.");
+                StartNewGame();
+                return;
+            }
+
+            GameState gameState = JsonUtility.FromJson<GameState>(json);
+            if (gameState == null || gameState.cards == null || gameState.cards.Count == 0)
+            {
+                Debug.LogError("Failed to deserialize saved game data. Starting a new game.");
+                StartNewGame();
+                return;
+            }
+
+            score = gameState.score;
+            highScore = gameState.highScore;
+            matchedPairs = gameState.matchedPairs;
+            UpdateScoreDisplay();
+
+            // Re-calculate columns and rows from the loaded card count.
+            int totalCards = gameState.cards.Count;
+            columns = 1;
+            rows = 1;
+
+            for (int i = 1; i <= Mathf.Sqrt(totalCards); i++)
+            {
+                if (totalCards % i == 0)
+                {
+                    rows = i;
+                    columns = totalCards / i;
+                }
+            }
+            if (columns < rows)
+            {
+                int temp = columns;
+                columns = rows;
+                rows = temp;
+            }
+
+            float gridWidth = columns * cardSize.x + (columns - 1) * cardSpacing;
+            float gridHeight = rows * cardSize.y + (rows - 1) * cardSpacing;
+            Vector2 startPos = new Vector2(-gridWidth / 2 + cardSize.x / 2, gridHeight / 2 - cardSize.y / 2);
+
+
+            for (int i = 0; i < gameState.cards.Count; i++)
+            {
+                CardData cardData = gameState.cards[i];
+                GameObject newCardObject = Instantiate(cardPrefab, cardContainer);
+                Card newCard = newCardObject.GetComponent<Card>();
+
+                newCard.SetCard(cardData.cardID, allCardFaces[cardData.cardID], this, audioManager);
+
+                int row = cardData.positionIndex / columns;
+                int col = cardData.positionIndex % columns;
+
+                float posX = startPos.x + col * (cardSize.x + cardSpacing);
+                float posY = startPos.y - row * (cardSize.y + cardSpacing);
+
+                newCardObject.transform.localPosition = new Vector3(posX, posY, 0);
+
+                if (cardData.isFaceUp)
+                {
+                    newCard.Flip();
+                }
+                if (cardData.isMatched)
+                {
+                    newCard.gameObject.SetActive(false);
+                }
+                allCards.Add(newCard);
+            }
+            canFlip = true;
+            Debug.Log("Game state loaded!");
+        }
+        else
+        {
+            // If there's no saved data, start a new game.
+            StartNewGame();
+        }
+    }
+
+    private void StartNewGame()
+    {
+        // The Start() method will now just call this.
+        LoadGame(); // Load high score.
+        CalculateLayout();
+        GenerateCards();
+        StartCoroutine(ShowAndHideCards());
+    }
+
+    private void ClearSavedGame()
+    {
+        PlayerPrefs.DeleteKey("SavedGameData");
+        PlayerPrefs.SetInt("HasSavedGame", 0);
+        PlayerPrefs.Save();
+        Debug.Log("Saved game data cleared!");
+    }
+
     public void QuitGame()
     {
-        // This will save the final score as HighScore.
+        // This is called when the user quits from the end-game menu.
+        ClearSavedGame(); // Clear the saved game state.
         Debug.Log("Quitting game with a score of: " + score);
+        Application.Quit();
+    }
+
+    public void SaveAndQuitToMenu()
+    {
+        // This method saves the full game state and returns to the menu.
+        SaveGame(); // This will save the full game state now.
+        PlayerPrefs.SetInt("HasSavedGame", 1); // Ensure the flag is set.
+        PlayerPrefs.Save();
         Application.Quit();
     }
 
