@@ -24,4 +24,13 @@ public class AudioManager : MonoBehaviour
             audioSource2.Pause();
         }
     }
+
+    public void Restart()
+    {
+        if (audioSource2 != null)
+        {
+            audioSource2.loop = true;
+            audioSource2.Play();
+        }
+    }
 }

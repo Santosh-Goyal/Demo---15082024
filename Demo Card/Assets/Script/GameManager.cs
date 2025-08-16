@@ -28,13 +28,16 @@ public class GameManager : MonoBehaviour
     [Space(20)]
     [Header("UI and Sound")]
     [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private TextMeshProUGUI highScoreText;
     [SerializeField] private AudioManager audioManager;
+    [SerializeField] private UIManager uiManager;
 
     [Space(20)]
     [Header("Game State Variables")]
     private List<Card> flippedCards = new List<Card>(); // Stores the currently flipped cards for comparison.
     private List<Card> allCards = new List<Card>(); // This will hold all instantiated cards.
     private int score = 0;
+    private int highScore = 0;
     private int combo = 0;
     public bool canFlip = false; // Tracks if a card comparison is in progress.
     private int matchedPairs = 0;
@@ -215,11 +218,7 @@ public class GameManager : MonoBehaviour
 
             if (matchedPairs == pairsCount)
             {
-                Debug.Log("Game Over!");
-                audioManager.BGM();
-                audioManager.PlaySound(audioManager.gameOverSound);
-                // You can add logic to show a game over screen here.
-                SaveGame(); // Save the final score.
+                GameOver();
             }
 
         }
@@ -238,11 +237,38 @@ public class GameManager : MonoBehaviour
         canFlip = true;
     }
 
+    private void GameOver()
+    {
+        StartCoroutine(ShowGameOverScreenWithDelay());
+    }
+
+    private IEnumerator ShowGameOverScreenWithDelay()
+    {
+        audioManager.BGM();
+        audioManager.PlaySound(audioManager.gameOverSound);
+        // Wait for the game over sound to finish.
+        yield return new WaitForSeconds(audioManager.gameOverSound.length);
+
+        Debug.Log("Game Over!");
+        SaveGame();
+        uiManager.ShowGameOverUI(score);
+    }
+
     private void UpdateScoreDisplay()
     {
         if (scoreText != null)
         {
             scoreText.text = "Score: " + score.ToString();
+        }
+        if (highScoreText != null)
+        {
+            // If the current score is higher than the high score,
+            // we update the high score to match the current score.
+            if (score > highScore)
+            {
+                highScore = score;
+            }
+            highScoreText.text = "High Score: " + highScore.ToString();
         }
     }
 
@@ -253,18 +279,45 @@ public class GameManager : MonoBehaviour
 
     private void SaveGame()
     {
-        PlayerPrefs.SetInt("PlayerScore", score);
+        PlayerPrefs.SetInt("HighScore", highScore);
         PlayerPrefs.Save(); // Save the data to disk.
         Debug.Log("Game Saved!");
     }
 
     private void LoadGame()
     {
-        if (PlayerPrefs.HasKey("PlayerScore"))
+        if (PlayerPrefs.HasKey("HighScore"))
         {
-            score = PlayerPrefs.GetInt("PlayerScore");
+            highScore = PlayerPrefs.GetInt("HighScore");
             UpdateScoreDisplay();
             Debug.Log("Game Loaded!");
         }
+    }
+
+    public void QuitGame()
+    {
+        // This will save the final score as HighScore.
+        Debug.Log("Quitting game with a score of: " + score);
+        Application.Quit();
+    }
+
+    public void RestartGame()
+    {
+        // Clear all cards.
+        foreach (Card card in allCards)
+        {
+            Destroy(card.gameObject);
+        }
+        allCards.Clear();
+
+        // Reset game state.
+        matchedPairs = 0;
+        canFlip = false;
+
+        // Start a new game with carry-forward score.
+        CalculateLayout();
+        GenerateCards();
+        StartCoroutine(ShowAndHideCards());
+        audioManager.Restart();
     }
 }
