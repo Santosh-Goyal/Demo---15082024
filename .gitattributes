@@ -1,3 +1,12 @@
+# Auto-detect text files and normalize line endings
+* text=auto eol=lf
+
+# Exclude Unity's binary files from line ending conversions
+*.prefab binary
+*.unity binary
+*.asset binary
+# ... and the rest of your binary list
+
 * text=auto
 
 # Exclude Unity's binary files from line ending conversions
