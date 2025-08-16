@@ -151,13 +151,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cardSize: {x: 100, y: 150}
-  cardSpacing: 100
-  columns: 4
-  rows: 4
-  scoreText: {fileID: 2065537092}
+  cardSpacing: 60
   cardPrefab: {fileID: 2551191241919481744, guid: a71a72cd201fd294886cbace12f7232c, type: 3}
   cardContainer: {fileID: 1023178711}
-  cardFaces:
+  allCardFaces:
+  - {fileID: 806240489, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: -1417127130, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: -1304328455, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: -1863419736, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: 969174285, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: -402097031, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: 2047938230, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  - {fileID: 427680136, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
   - {fileID: -1539105003, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
   - {fileID: -2137264590, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
   - {fileID: 1937507339, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
@@ -165,10 +170,10 @@ MonoBehaviour:
   - {fileID: -1581547130, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
   - {fileID: -705799244, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
   - {fileID: -2102253447, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
-  - {fileID: 806240489, guid: fea8875a59cc09942853e7cba65dda5d, type: 3}
+  maxPairs: 15
+  scoreText: {fileID: 2065537092}
   audioManager: {fileID: 342637965}
-  canFlip: 1
-  pairsCount: 8
+  canFlip: 0
 --- !u!4 &342637963
 Transform:
   m_ObjectHideFlags: 0

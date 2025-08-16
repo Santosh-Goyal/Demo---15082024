@@ -8,61 +8,100 @@ public class GameManager : MonoBehaviour
     [Header("Layout Settings")]
     [SerializeField] private Vector2 cardSize = new Vector2(100, 150);
     [SerializeField] private float cardSpacing = 100f;
-    [SerializeField] private int columns = 4;
-    [SerializeField] private int rows = 3;
 
+    [Space(20)]
+    [Header("Dynamic Variable")]
+    private int pairsCount;
+    private int columns;
+    private int rows;
+
+    [Space(20)]
+    [Header("Card Reference")]
+    [SerializeField] private GameObject cardPrefab; // The prefab of the card.
+    [SerializeField] private Transform cardContainer; // The container for the cards in the scene.
+
+    [Space(20)]
+    [Header("Card Faces Pool")]
+    [SerializeField] private Sprite[] allCardFaces; // Array of sprites for the card faces, assign these in the Inspector.
+    [SerializeField] private int maxPairs = 16; // The max number of pairs for a game.
+
+    [Space(20)]
+    [Header("UI and Sound")]
     [SerializeField] private TextMeshProUGUI scoreText;
+    [SerializeField] private AudioManager audioManager;
+
+    [Space(20)]
+    [Header("Game State Variables")]
+    private List<Card> flippedCards = new List<Card>(); // Stores the currently flipped cards for comparison.
+    private List<Card> allCards = new List<Card>(); // This will hold all instantiated cards.
     private int score = 0;
     private int combo = 0;
-
-    // The prefab of the card.
-    [SerializeField] private GameObject cardPrefab;
-
-    // The container for the cards in the scene.
-    [SerializeField] private Transform cardContainer;
-
-    // Array of sprites for the card faces, assign these in the Inspector.
-    [SerializeField] private Sprite[] cardFaces;
-
-    // Stores the currently flipped cards for comparison.
-    private List<Card> flippedCards = new List<Card>();
-    private List<Card> allCards = new List<Card>(); // This will hold all instantiated cards.
-
-    [SerializeField] private AudioManager audioManager;
-    
-    // Tracks if a card comparison is in progress.
-    public bool canFlip = false;
-
-    // The number of pairs to create.
-    [SerializeField] private int pairsCount = 6;
-
+    public bool canFlip = false; // Tracks if a card comparison is in progress.
     private int matchedPairs = 0;
 
     private void Start()
     {
         LoadGame();
+        CalculateLayout();
         GenerateCards();
         StartCoroutine(ShowAndHideCards());
     }
 
+    // Dynamically calculates the number of pairs and grid layout.
+    private void CalculateLayout()
+    {
+        // Choose a random number of pairs between 2 and the maxPairs.
+        // Make sure it's an even number of cards.
+        int totalCards;
+        do
+        {
+            pairsCount = Random.Range(2, maxPairs + 1);
+            totalCards = pairsCount * 2;
+        } while (totalCards % 2 != 0 || totalCards > allCardFaces.Length * 2);
+
+        // Find a balanced grid layout (rows x columns) for the total number of cards.
+        columns = 1;
+        rows = 1;
+
+        for (int i = 1; i <= Mathf.Sqrt(totalCards); i++)
+        {
+            if (totalCards % i == 0)
+            {
+                rows = i;
+                columns = totalCards / i;
+            }
+        }
+
+        // Ensure columns are greater than or equal to rows for a horizontal layout.
+        if (columns < rows)
+        {
+            int temp = columns;
+            columns = rows;
+            rows = temp;
+        }
+
+        Debug.Log("Generated a new game with " + pairsCount + " pairs. Grid is " + columns + "x" + rows);
+    }
+
     private void GenerateCards()
     {
-        // Check if we have enough card faces to create the pairs.
-        if (cardFaces.Length < pairsCount)
+        // Select a random set of card faces from the pool.
+        List<Sprite> selectedFaces = new List<Sprite>();
+        List<int> faceIndices = new List<int>();
+
+        for (int i = 0; i < allCardFaces.Length; i++)
         {
-            Debug.LogError("Not enough card faces for the number of pairs!");
-            return;
+            faceIndices.Add(i);
         }
 
-        // Ensure the pairs count matches the grid size
-        pairsCount = (rows * columns) / 2;
-        if ((rows * columns) % 2 != 0)
+        Shuffle(faceIndices);
+
+        for (int i = 0; i < pairsCount; i++)
         {
-            Debug.LogError("Grid size must be even for a card match game!");
-            return;
+            selectedFaces.Add(allCardFaces[faceIndices[i]]);
         }
 
-        // Create a list of all card IDs. Each ID appears twice.
+        // Create a list of all card IDs based on the selected faces.
         List<int> cardIDs = new List<int>();
         for (int i = 0; i < pairsCount; i++)
         {
@@ -85,8 +124,8 @@ public class GameManager : MonoBehaviour
         {
             GameObject newCardObject = Instantiate(cardPrefab, cardContainer);
             Card newCard = newCardObject.GetComponent<Card>();
-            newCard.SetCard(cardIDs[i], cardFaces[cardIDs[i]], this, audioManager);
-            allCards.Add(newCard); // Add the new card to our list.
+            newCard.SetCard(cardIDs[i], selectedFaces[cardIDs[i]], this, audioManager);
+            allCards.Add(newCard);
 
             // Calculate the card's position in the grid
             int row = i / columns;
