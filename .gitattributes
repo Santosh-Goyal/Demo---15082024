@@ -27,3 +27,5 @@
 *.uproject binary
 *.uasset binary
 *.umeta binary
+*.shader text
+*.shadergraph text
