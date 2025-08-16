@@ -5,6 +5,12 @@ using TMPro;
 
 public class GameManager : MonoBehaviour
 {
+    [Header("Layout Settings")]
+    [SerializeField] private Vector2 cardSize = new Vector2(100, 150);
+    [SerializeField] private float cardSpacing = 100f;
+    [SerializeField] private int columns = 4;
+    [SerializeField] private int rows = 3;
+
     [SerializeField] private TextMeshProUGUI scoreText;
     private int score = 0;
     private int combo = 0;
@@ -20,11 +26,12 @@ public class GameManager : MonoBehaviour
 
     // Stores the currently flipped cards for comparison.
     private List<Card> flippedCards = new List<Card>();
+    private List<Card> allCards = new List<Card>(); // This will hold all instantiated cards.
 
     [SerializeField] private AudioManager audioManager;
     
     // Tracks if a card comparison is in progress.
-    public bool canFlip = true;
+    public bool canFlip = false;
 
     // The number of pairs to create.
     [SerializeField] private int pairsCount = 6;
@@ -35,6 +42,7 @@ public class GameManager : MonoBehaviour
     {
         LoadGame();
         GenerateCards();
+        StartCoroutine(ShowAndHideCards());
     }
 
     private void GenerateCards()
@@ -43,6 +51,14 @@ public class GameManager : MonoBehaviour
         if (cardFaces.Length < pairsCount)
         {
             Debug.LogError("Not enough card faces for the number of pairs!");
+            return;
+        }
+
+        // Ensure the pairs count matches the grid size
+        pairsCount = (rows * columns) / 2;
+        if ((rows * columns) % 2 != 0)
+        {
+            Debug.LogError("Grid size must be even for a card match game!");
             return;
         }
 
@@ -57,12 +73,29 @@ public class GameManager : MonoBehaviour
         // Shuffle the list of IDs.
         Shuffle(cardIDs);
 
+        // Calculate the size of the entire grid
+        float gridWidth = columns * cardSize.x + (columns - 1) * cardSpacing;
+        float gridHeight = rows * cardSize.y + (rows - 1) * cardSpacing;
+
+        // Calculate the top-left corner offset to center the grid
+        Vector2 startPos = new Vector2(-gridWidth / 2 + cardSize.x / 2, gridHeight / 2 - cardSize.y / 2);
+
         // Instantiate and set up the cards.
         for (int i = 0; i < cardIDs.Count; i++)
         {
             GameObject newCardObject = Instantiate(cardPrefab, cardContainer);
             Card newCard = newCardObject.GetComponent<Card>();
             newCard.SetCard(cardIDs[i], cardFaces[cardIDs[i]], this, audioManager);
+            allCards.Add(newCard); // Add the new card to our list.
+
+            // Calculate the card's position in the grid
+            int row = i / columns;
+            int col = i % columns;
+
+            float posX = startPos.x + col * (cardSize.x + cardSpacing);
+            float posY = startPos.y - row * (cardSize.y + cardSpacing);
+
+            newCardObject.transform.localPosition = new Vector3(posX, posY, 0);
         }
     }
 
@@ -78,6 +111,27 @@ public class GameManager : MonoBehaviour
             list[k] = list[n];
             list[n] = value;
         }
+    }
+
+    private IEnumerator ShowAndHideCards()
+    {
+        // Set all cards face up at the beginning.
+        foreach (Card card in allCards)
+        {
+            card.Flip();
+        }
+
+        // Wait for a few seconds so the player can see them.
+        yield return new WaitForSeconds(3.0f);
+
+        // Flip all cards back down to start the game.
+        foreach (Card card in allCards)
+        {
+            card.Flip();
+        }
+
+        // Now, allow the player to interact with the cards.
+        canFlip = true;
     }
 
     // Called by the Card script when a card is clicked.
